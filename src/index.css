@@ -1,0 +1,536 @@
+:root {
+  --bg: #0b0d10;
+  --surface: #15181d;
+  --surface-2: #1d2128;
+  --border: #2a2f38;
+  --text: #f2f4f7;
+  --muted: #8b93a1;
+  --accent: #1ed760;
+  --accent-text: #06210f;
+  --danger: #ff5c6c;
+  --warn: #f5b942;
+  --radius: 12px;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --border: #dde1e6;
+    --text: #12151a;
+    --muted: #5f6775;
+    --accent: #12a84a;
+    --accent-text: #ffffff;
+    --danger: #d92d3f;
+    --warn: #a86d00;
+    color-scheme: light;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+code {
+  font-size: 0.9em;
+  background: var(--surface-2);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+.app {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 0.85rem;
+}
+.center {
+  text-align: center;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ---- buttons ---- */
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 10px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: filter 0.15s, opacity 0.15s;
+}
+.btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.btn.ghost {
+  background: transparent;
+}
+.btn.small {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+.btn.wide {
+  width: 100%;
+}
+
+.error-box {
+  border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin: 16px 0;
+  text-align: center;
+}
+.error-box p {
+  margin: 0 0 12px;
+}
+p.error-box {
+  margin: 16px 0;
+}
+.error-text {
+  color: var(--danger);
+}
+.notice {
+  color: var(--warn);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* ---- login ---- */
+
+.login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding-top: 12vh;
+  max-width: 360px;
+  margin: 0 auto;
+}
+.logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: var(--accent);
+  color: var(--accent-text);
+  display: grid;
+  place-items: center;
+  font-size: 40px;
+}
+.login h1 {
+  font-size: 2.25rem;
+}
+
+/* ---- playlist picker ---- */
+
+.picker-header,
+.game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.playlist-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.playlist-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.playlist-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+.playlist-card img,
+.cover-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.cover-placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  color: var(--muted);
+}
+.playlist-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- loader ---- */
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding-top: 15vh;
+}
+.load-bar {
+  width: 100%;
+  max-width: 360px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.load-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+.load-bar-fill.indeterminate {
+  width: 30%;
+  animation: slide 1.2s ease-in-out infinite;
+}
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+/* ---- game ---- */
+
+.game-header {
+  justify-content: flex-start;
+}
+.game-title {
+  min-width: 0;
+}
+.game-title h1 {
+  font-size: 1.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.game-title p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.attempts {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  display: grid;
+  gap: 6px;
+}
+.attempts li {
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.attempts li.current {
+  border-color: var(--muted);
+}
+.attempts li.wrong {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.attempts li.skip {
+  color: var(--muted);
+  background: var(--surface);
+}
+
+/* ---- player ---- */
+
+.player {
+  margin-bottom: 20px;
+}
+.progress {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progress-unlocked {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  transition: width 0.25s;
+}
+.progress-played {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+}
+.progress-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--bg);
+}
+.player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.85rem;
+  width: 3em;
+}
+.time:last-child {
+  text-align: right;
+}
+.play-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding-left: 3px;
+}
+.play-btn:disabled {
+  opacity: 0.4;
+  cursor: wait;
+}
+
+/* ---- guess input ---- */
+
+.guess-field {
+  position: relative;
+}
+.guess-field input {
+  width: 100%;
+  font: inherit;
+  /* 16px+ stops iOS from zooming in on focus */
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  outline: none;
+}
+.guess-field input:focus {
+  border-color: var(--accent);
+}
+.suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px); /* open upward so the mobile keyboard doesn't cover it */
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.35);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 10;
+}
+.suggestions li {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.suggestions li.active {
+  background: var(--surface-2);
+}
+.suggestions.empty {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.guess-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.guess-actions .btn {
+  flex: 1;
+}
+.hint {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--warn);
+  text-align: center;
+}
+
+/* ---- reveal ---- */
+
+.reveal {
+  margin-bottom: 20px;
+}
+.reveal-result {
+  text-align: center;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+.reveal-result.won {
+  color: var(--accent);
+}
+.reveal-result.lost {
+  color: var(--danger);
+}
+.reveal-card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.reveal-cover {
+  width: 112px;
+  height: 112px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+.reveal-info {
+  min-width: 0;
+}
+.reveal-info h2 {
+  font-size: 1.15rem;
+}
+.reveal-info p {
+  margin: 2px 0;
+}
+.reveal-artist {
+  font-weight: 500;
+}
+.reveal-album {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.spotify-link {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.spotify-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 400px) {
+  .reveal-cover {
+    width: 88px;
+    height: 88px;
+  }
+}
