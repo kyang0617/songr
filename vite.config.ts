@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import type { IncomingMessage } from "node:http";
+import * as dailyRoute from "./api/daily";
 import * as matchRoute from "./api/deezer/match";
 import * as trackRoute from "./api/deezer/track";
 
@@ -10,6 +11,7 @@ type Route = Partial<Record<"GET" | "POST", Handler>>;
 // Same handlers Vercel runs from /api, mounted on the dev server so
 // `npm run dev` works without the Vercel CLI.
 const routes: Record<string, Route> = {
+  "/api/daily": dailyRoute,
   "/api/deezer/match": matchRoute,
   "/api/deezer/track": trackRoute,
 };

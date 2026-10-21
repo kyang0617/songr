@@ -24,13 +24,18 @@ export interface MatchResult {
   via: "isrc" | "search" | null;
 }
 
-interface DeezerTrack {
+export interface DeezerTrack {
   id: number;
   title: string;
   title_short?: string;
   duration: number;
   preview: string;
-  artist: { name: string };
+  /** Deezer's popularity score (0 – 1,000,000), based on streams. */
+  rank: number;
+  link: string;
+  readable?: boolean;
+  artist: { id: number; name: string };
+  album: { title: string; cover_big?: string; cover_xl?: string };
 }
 
 // --- throttling -------------------------------------------------------------
@@ -76,21 +81,41 @@ export async function getTrack(id: number): Promise<{ id: number; preview: strin
   return track ? { id: track.id, preview: track.preview || null } : null;
 }
 
-export async function matchTracks(inputs: MatchInput[]): Promise<MatchResult[]> {
-  const results: MatchResult[] = new Array(inputs.length);
+/** All tracks of a public playlist, following Deezer's `next` pagination. */
+export async function getPlaylistTracks(playlistId: number): Promise<DeezerTrack[]> {
+  const tracks: DeezerTrack[] = [];
+  let path: string | null = `/playlist/${playlistId}/tracks?limit=100`;
+  while (path) {
+    const page: { data: DeezerTrack[]; next?: string } | null = await deezerGet(path);
+    if (!page) break;
+    tracks.push(...page.data);
+    path = page.next ? page.next.replace(API, "") : null;
+  }
+  return tracks;
+}
+
+export async function getArtistFans(artistId: number): Promise<number> {
+  const artist = await deezerGet<{ nb_fan: number }>(`/artist/${artistId}`);
+  return artist?.nb_fan ?? 0;
+}
+
+export function matchTracks(inputs: MatchInput[]): Promise<MatchResult[]> {
+  return mapPool(inputs, (input) =>
+    matchOne(input).catch((): MatchResult => ({ deezerId: null, preview: null, via: null })),
+  );
+}
+
+/** Like Promise.all(items.map(fn)), but with at most CONCURRENCY in flight. */
+export async function mapPool<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
   let next = 0;
-  // Simple worker pool: CONCURRENCY workers pull from a shared index.
   const worker = async () => {
-    while (next < inputs.length) {
+    while (next < items.length) {
       const i = next++;
-      try {
-        results[i] = await matchOne(inputs[i]);
-      } catch {
-        results[i] = { deezerId: null, preview: null, via: null };
-      }
+      results[i] = await fn(items[i]);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, inputs.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, worker));
   return results;
 }
 
