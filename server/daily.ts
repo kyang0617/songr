@@ -12,7 +12,23 @@ import { getArtistFans, getPlaylistTracks, mapPool, type DeezerTrack } from "./d
 
 const SAMPLE_SIZE = 30;
 
-export async function buildDailyPuzzle(genre: DailyGenre, date: string): Promise<DailyPuzzle> {
+// Concurrent and repeat requests on a warm server instance share one build.
+// (The CDN cache in api/daily.ts does the same across instances.)
+const cache = new Map<string, Promise<DailyPuzzle>>();
+
+export function getDailyPuzzle(genre: DailyGenre, date: string): Promise<DailyPuzzle> {
+  const key = `${date}|${genre.id}`;
+  let puzzle = cache.get(key);
+  if (!puzzle) {
+    if (cache.size > 50) cache.clear(); // old dates; keep memory bounded
+    puzzle = buildDailyPuzzle(genre, date);
+    puzzle.catch(() => cache.delete(key)); // don't cache failures
+    cache.set(key, puzzle);
+  }
+  return puzzle;
+}
+
+async function buildDailyPuzzle(genre: DailyGenre, date: string): Promise<DailyPuzzle> {
   const playlists = await mapPool(genre.playlists, getPlaylistTracks);
   const pool = dedupe(playlists.flat().filter((t) => t.preview && t.readable !== false));
   if (pool.length < DAILY_LENGTH) throw new Error(`Not enough playable songs for ${genre.name}`);

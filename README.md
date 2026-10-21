@@ -1,16 +1,26 @@
 # Songr
 
-A Songless-style guessing game for your own Spotify playlists. Log in with
-Spotify, pick a playlist, and name the song from a 1-second clip. Each wrong
-guess or skip unlocks more: 1s → 2s → 4s → 7s → 11s → 16s.
+A Songless-style music guessing game. Name the song from a 1-second clip;
+each wrong guess or skip unlocks more: 1s → 2s → 4s → 7s → 11s → 16s.
 
-Spotify provides the playlists and track metadata. Deezer provides the
-30-second audio previews, since Spotify's API no longer returns preview URLs.
-Tracks are matched by ISRC first, then by a title/artist/duration search.
+Two modes:
+
+- **Daily SongR** (no login). Pick a genre and get 5 songs, easiest to
+  hardest, the same for everyone that day. Songs come from Deezer's editorial
+  playlists. Progress is saved in the browser, and the result can be shared as
+  an emoji grid.
+- **Your Spotify playlists** (login). Endless rounds from one of your own
+  playlists, with score and streak. Spotify provides the playlists; Deezer
+  provides the 30-second previews, since Spotify's API no longer returns them.
+  Tracks are matched by ISRC first, then by a title/artist/duration search.
+  Spotify only allows 5 invited users for apps in development mode.
 
 ## How it fits together
 
 ```
+api/daily.ts             GET the daily puzzle for a genre + date
+server/daily.ts          Builds the puzzle: pool, seeded sample, difficulty
+shared/daily.ts          Genre → Deezer playlist config, puzzle types
 api/deezer/match.ts      POST batch matcher  (Vercel function)
 api/deezer/track.ts      GET fresh preview URL by Deezer ID
 server/deezer.ts         Deezer client: throttling, ISRC lookup, search fallback
@@ -18,7 +28,8 @@ shared/normalize.ts      Title/artist cleanup, used by browser and server
 src/sources/types.ts     PlaylistSource + AudioSource interfaces
 src/sources/spotify/     PKCE auth + Spotify PlaylistSource
 src/sources/deezer.ts    Deezer AudioSource (calls /api, caches match IDs)
-src/components/          Login, PlaylistPicker, PlaylistLoader, Game, …
+src/components/          Home, Daily, Round (one song), Game (endless), …
+src/lib/daily.ts         Daily progress in localStorage, share text
 src/hooks/usePreviewPlayer.ts  Audio element clipped to the reveal limit
 vite.config.ts           Mounts the /api handlers on the dev server
 ```
@@ -36,6 +47,27 @@ vite.config.ts           Mounts the /api handlers on the dev server
   keeps a sliding window of 45 requests and runs up to 10 at a time. If Deezer
   reports a quota error anyway, it backs off and retries. The client sends
   tracks in batches of 25.
+
+## How the daily puzzle works
+
+1. `shared/daily.ts` lists a few Deezer editorial playlists per genre (Pop
+   Essentials, 90s Hits, …). The server pools their tracks, drops those
+   without a preview, and keeps one version of each song.
+2. A random generator seeded with `date|genre` shuffles the pool and takes
+   30 songs by different artists, so every player gets the same puzzle.
+3. Each song gets a popularity score: the higher of Deezer's stream-based
+   `rank` and the artist's fan count. The fan count covers famous songs that
+   a playlist links on a little-played remaster. The 30 are sorted, and one
+   song is picked from each fifth: Easy, Medium, Tricky, Hard, Expert.
+4. The response has no preview URLs, so Vercel's CDN caches it per date
+   (`s-maxage`), and the server also keeps it in memory. The browser saves
+   the puzzle's songs with your progress, so a reload never changes them.
+
+To add a genre, find playlists with `curl https://api.deezer.com/chart/{genreId}/playlists`
+(genre IDs: `curl https://api.deezer.com/genre`) and add an entry to `DAILY_GENRES`.
+
+The Spotify sections below are only needed for the playlist mode. The daily
+mode works without any setup.
 
 ## 1. Create the Spotify app
 
@@ -132,7 +164,9 @@ enough for day-to-day work.
 
 ## Ideas for later
 
-- Daily challenge: seed the deck from the date.
+- Daily streaks across days, and a stats page.
+- Search the whole Deezer catalogue for daily guesses, not just the genre pool.
+- Use Last.fm play counts as a second difficulty signal.
 - Cache tracks that failed to match, so they aren't retried on every load.
 - Move the Deezer throttle to a shared store, such as Vercel KV, if several
   function instances end up hammering Deezer at once.

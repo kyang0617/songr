@@ -5,11 +5,12 @@ import type { PlaylistSource, PlaylistSummary } from "../sources/types";
 interface Props {
   source: PlaylistSource;
   onPick: (playlist: PlaylistSummary) => void;
+  onHome: () => void;
   onLogout: () => void;
   onSessionExpired: (message: string) => void;
 }
 
-export function PlaylistPicker({ source, onPick, onLogout, onSessionExpired }: Props) {
+export function PlaylistPicker({ source, onPick, onHome, onLogout, onSessionExpired }: Props) {
   const [playlists, setPlaylists] = useState<PlaylistSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -33,6 +34,9 @@ export function PlaylistPicker({ source, onPick, onLogout, onSessionExpired }: P
   return (
     <div className="picker">
       <header className="picker-header">
+        <button className="btn ghost small" onClick={onHome}>
+          ← Home
+        </button>
         <h1>Pick a playlist</h1>
         <button className="btn ghost small" onClick={onLogout}>
           Log out

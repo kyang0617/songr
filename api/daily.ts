@@ -3,7 +3,7 @@
 // included (they expire), so the response can be cached for the whole day.
 
 import { findGenre } from "../shared/daily.js";
-import { buildDailyPuzzle } from "../server/daily.js";
+import { getDailyPuzzle } from "../server/daily.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   try {
-    const puzzle = await buildDailyPuzzle(genre, date);
+    const puzzle = await getDailyPuzzle(genre, date);
     // Cache at the CDN, keyed by URL (genre + date), so players share one
     // puzzle even if Deezer's playlists change during the day.
     return json(puzzle, 200, "public, max-age=0, s-maxage=172800");

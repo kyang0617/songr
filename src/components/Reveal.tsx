@@ -5,9 +5,10 @@ interface Props {
   won: boolean;
   attempts: number;
   onNext: () => void;
+  nextLabel: string;
 }
 
-export function Reveal({ track, won, attempts, onNext }: Props) {
+export function Reveal({ track, won, attempts, onNext, nextLabel }: Props) {
   return (
     <div className="reveal">
       <p className={`reveal-result ${won ? "won" : "lost"}`}>
@@ -23,13 +24,13 @@ export function Reveal({ track, won, attempts, onNext }: Props) {
           <h2>{track.title}</h2>
           <p className="reveal-artist">{track.artists.join(", ")}</p>
           <p className="reveal-album">{track.album}</p>
-          <a className="spotify-link" href={track.externalUrl} target="_blank" rel="noreferrer">
-            Open in Spotify ↗
+          <a className="external-link" href={track.externalUrl} target="_blank" rel="noreferrer">
+            Open in {track.externalSite} ↗
           </a>
         </div>
       </div>
       <button className="btn primary wide" onClick={onNext} autoFocus>
-        Next song
+        {nextLabel}
       </button>
     </div>
   );

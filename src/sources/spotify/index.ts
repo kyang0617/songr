@@ -109,6 +109,7 @@ export const spotify: PlaylistSource = {
         durationMs: t.duration_ms,
         isrc: t.external_ids?.isrc ?? null,
         externalUrl: t.external_urls.spotify,
+        externalSite: "Spotify",
       });
     }
     return tracks;

@@ -23,6 +23,7 @@ export interface Track {
   isrc: string | null;
   /** Link to open the track in the source app. */
   externalUrl: string;
+  externalSite: "Spotify" | "Deezer";
 }
 
 export interface PlaylistSource {
