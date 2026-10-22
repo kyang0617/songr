@@ -184,6 +184,9 @@ enough for day-to-day work.
 ## Gameplay notes
 
 - Guesses must be picked from the suggestion list. Typing alone doesn't count.
+- After a skip, Play picks up where you left off, so you only hear the newly
+  unlocked part. The replay button next to it plays everything unlocked so
+  far from the start.
 - Suggestions and guess checks use cleaned titles: "(Remastered 2011)",
   "- Live", "feat. X", "- Radio Edit" and similar are stripped. The reveal
   shows the real Spotify title. Two tracks with the same cleaned title and

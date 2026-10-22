@@ -463,6 +463,32 @@ p.error-box {
   opacity: 0.4;
   cursor: wait;
 }
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.replay-btn,
+.replay-spacer {
+  width: 44px;
+  height: 44px;
+}
+.replay-btn {
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.replay-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+.replay-btn:disabled {
+  opacity: 0.4;
+  cursor: wait;
+}
 
 /* ---- guess input ---- */
 

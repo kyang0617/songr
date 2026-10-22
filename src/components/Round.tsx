@@ -95,14 +95,27 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
         />
         <div className="player-row">
           <span className="time">{formatTime(player.position)}</span>
-          <button
-            className="play-btn"
-            onClick={player.toggle}
-            disabled={!player.ready && !player.playing}
-            aria-label={player.playing ? "Stop" : "Play"}
-          >
-            {player.playing ? "■" : "▶"}
-          </button>
+          <div className="player-controls">
+            <button
+              className="replay-btn"
+              onClick={player.replay}
+              disabled={!player.ready}
+              aria-label="Replay from the start"
+              title="Replay from the start"
+            >
+              <ReplayIcon />
+            </button>
+            <button
+              className="play-btn"
+              onClick={player.toggle}
+              disabled={!player.ready && !player.playing}
+              aria-label={player.playing ? "Stop" : "Play"}
+            >
+              {player.playing ? "■" : "▶"}
+            </button>
+            {/* Balances the replay button, so Play stays centred. */}
+            <span className="replay-spacer" aria-hidden />
+          </div>
           <span className="time">{formatTime(limit)}</span>
         </div>
         {!player.ready && !player.error && <p className="muted center small">Loading preview…</p>}
@@ -119,6 +132,15 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
         />
       )}
     </>
+  );
+}
+
+function ReplayIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 3v6h6" />
+    </svg>
   );
 }
 
