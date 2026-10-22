@@ -64,9 +64,10 @@ instant and makes no Deezer calls.
      song's ISRC (characters 6–7 are when the recording was registered).
      Both can be late, never early: a 2000 hit on a 2018 "Greatest Hits"
      release says 2018 on Deezer, but its ISRC says 2000.
-   - **Popularity.** The higher of Deezer's stream-based `rank` and the
-     artist's fan count. The fan count covers famous songs that a playlist
-     links on a little-played release.
+   - **Popularity.** Deezer's stream-based `rank` for the song, scaled to
+     0–1. Only the song's own streams count, not the artist's fame, so an
+     album track by a huge artist ranks below their hits. When a song is on
+     several releases, the most-streamed one is kept.
    - **Genres.** Every genre whose playlists include the song.
 
    The catalog starts at `FIRST_YEAR` (2000). Songs dated earlier are
@@ -200,7 +201,8 @@ enough for day-to-day work.
 - Add Billboard's year-end Hot 100 lists (from Wikipedia) as a source: the
   biggest hits of each year, with the year included. It would fill out
   2010–2019, the thinnest part of the catalog.
-- Use Last.fm play counts as a second difficulty signal.
+- Tune difficulty from real results: record how often each song is solved,
+  and how many guesses it takes.
 - Cache tracks that failed to match, so they aren't retried on every load.
 - Move the Deezer throttle to a shared store, such as Vercel KV, if several
   function instances end up hammering Deezer at once.
