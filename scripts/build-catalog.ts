@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { FIRST_YEAR, GENRES, type CatalogSong } from "../shared/game.js";
 import { artistKey, cleanTitle, looselyEqual, titleKey } from "../shared/normalize.js";
-import { getArtistFans, getPlaylistTracks, getTrackDetails, mapPool, type DeezerTrack } from "../server/deezer.js";
+import { getPlaylistTracks, getTrackDetails, mapPool, type DeezerTrack } from "../server/deezer.js";
 
 const CACHE_DIR = "scripts/.cache";
 const MB = "https://musicbrainz.org/ws/2";
@@ -40,7 +40,6 @@ function fileCache<T>(name: string) {
 
 mkdirSync(CACHE_DIR, { recursive: true });
 const trackCache = fileCache<{ isrc: string | null; date: string | null }>("deezer-tracks");
-const fanCache = fileCache<number>("deezer-fans");
 const yearCache = fileCache<number | null>("musicbrainz-years");
 
 // --- MusicBrainz --------------------------------------------------------------
@@ -114,15 +113,12 @@ async function originalYear(song: DeezerTrack, isrc: string | null): Promise<num
 // --- build ------------------------------------------------------------------
 
 /**
- * 0 – 1, how likely a player is to know the song. Deezer's `rank` is
- * stream-based but per release, so a famous song on a little-played remaster
- * can rank near zero; the artist's fan count catches those.
+ * 0 – 1, how likely a player is to know the song: Deezer's stream-based
+ * `rank` (0 – 1,000,000) for the most-streamed version in the playlists.
+ * Only the song's own streams count, not the artist's fame, so an album
+ * track by a huge artist ranks below their hits.
  */
-function popularity(rank: number, fans: number): number {
-  const streams = rank / 1_000_000;
-  const fame = Math.min(1, Math.max(0, (Math.log10(fans + 1) - 3) / 4)); // 1k fans → 0, 10M → 1
-  return Math.round(Math.max(streams, fame) * 100) / 100;
-}
+const popularity = (rank: number) => Math.round((rank / 1_000_000) * 100) / 100;
 
 async function main() {
   // 1. Every playable track of every genre playlist, one entry per song
@@ -145,7 +141,7 @@ async function main() {
   const all = [...songs.values()];
   console.log(`${all.length} distinct songs`);
 
-  // 2. ISRC + release date (Deezer), and artist fan counts.
+  // 2. ISRC + release date (Deezer).
   //    A failed request (network blip) just leaves that song out of this
   //    build; it isn't cached, so the next run retries it.
   let failed = 0;
@@ -158,10 +154,7 @@ async function main() {
     }),
   );
   trackCache.save();
-  const artists = [...new Set(all.map((s) => s.track.artist.id))].filter((id) => !fanCache.has(id));
-  await mapPool(artists, (id) => attempt(async () => fanCache.set(id, await getArtistFans(id))));
-  fanCache.save();
-  console.log(`Deezer details done (${todo.length} tracks, ${artists.length} artists, ${failed} failed)`);
+  console.log(`Deezer details done (${todo.length} tracks fetched, ${failed} failed)`);
 
   // 3. Original years from MusicBrainz, one request at a time (opt-in).
   const needYear = USE_MUSICBRAINZ ? all.filter((s) => !yearCache.has(s.track.id)) : [];
@@ -202,7 +195,7 @@ async function main() {
       duration: t.duration,
       link: t.link,
       year,
-      popularity: popularity(t.rank, fanCache.get(t.artist.id) ?? 0),
+      popularity: popularity(t.rank),
       genres: GENRES.map((g) => g.id).filter((id) => genres.has(id)),
     });
   }

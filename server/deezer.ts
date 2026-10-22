@@ -101,11 +101,6 @@ export async function getPlaylistTracks(playlistId: number): Promise<DeezerTrack
   return tracks;
 }
 
-export async function getArtistFans(artistId: number): Promise<number> {
-  const artist = await deezerGet<{ nb_fan: number }>(`/artist/${artistId}`);
-  return artist?.nb_fan ?? 0;
-}
-
 export function matchTracks(inputs: MatchInput[]): Promise<MatchResult[]> {
   return mapPool(inputs, (input) =>
     matchOne(input).catch((): MatchResult => ({ deezerId: null, preview: null, via: null })),
