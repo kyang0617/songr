@@ -1,19 +1,38 @@
 import { useState } from "react";
-import { DAILY_GENRES, type DailyGenre } from "../../shared/daily";
-import { isComplete, loadProgress } from "../lib/daily";
+import { GENRES, MIN_SONGS, type GameSettings } from "../../shared/game";
+import { countSongs, loadSettings, saveSettings, YEAR_MAX, YEAR_MIN } from "../lib/game";
 import { isConfigured, isLoggedIn, login } from "../sources/spotify/auth";
 
 interface Props {
-  date: string;
   error?: string;
-  onDaily: (genre: DailyGenre) => void;
+  onPlay: (settings: GameSettings) => void;
   onPlaylists: () => void;
 }
 
-export function Home({ date, error, onDaily, onPlaylists }: Props) {
-  const [genre, setGenre] = useState(DAILY_GENRES[0]);
+// Decade shortcuts for the year range, e.g. 1980–1989 as "80s".
+const DECADES = Array.from(
+  { length: Math.floor(YEAR_MAX / 10) - Math.floor(Math.max(YEAR_MIN, 1950) / 10) + 1 },
+  (_, i) => (Math.floor(Math.max(YEAR_MIN, 1950) / 10) + i) * 10,
+);
+const decadeLabel = (d: number) => `${String(d).slice(2)}s`;
+
+export function Home({ error, onPlay, onPlaylists }: Props) {
+  const [settings, setSettings] = useState(loadSettings);
   const [redirecting, setRedirecting] = useState(false);
-  const done = (g: DailyGenre) => isComplete(loadProgress(date, g.id));
+  const { genres, from, to } = settings;
+  const count = countSongs(settings);
+
+  const update = (next: Partial<GameSettings>) => {
+    const merged = { ...settings, ...next };
+    setSettings(merged);
+    saveSettings(merged);
+  };
+  const toggleGenre = (id: string) => {
+    const next = genres.includes(id) ? genres.filter((g) => g !== id) : [...genres, id];
+    if (next.length) update({ genres: next }); // keep at least one
+  };
+  const isDecade = (d: number) => from === Math.max(d, YEAR_MIN) && to === Math.min(d + 9, YEAR_MAX);
+  const allYears = from === YEAR_MIN && to === YEAR_MAX;
 
   return (
     <div className="home">
@@ -26,24 +45,81 @@ export function Home({ date, error, onDaily, onPlaylists }: Props) {
       {error && <p className="error-box">{error}</p>}
 
       <section className="card">
-        <h2>Daily SongR</h2>
-        <p className="muted small">5 songs, easy to expert. Same songs for everyone today. No login needed.</p>
-        <div className="chips" role="radiogroup" aria-label="Genre">
-          {DAILY_GENRES.map((g) => (
+        <h2>Quick play</h2>
+        <p className="muted small">5 random songs, easy to expert. No login needed.</p>
+
+        <h3 className="field-label">Genres</h3>
+        <div className="chips" aria-label="Genres">
+          {GENRES.map((g) => (
             <button
               key={g.id}
-              role="radio"
-              aria-checked={g.id === genre.id}
-              className={`chip ${g.id === genre.id ? "selected" : ""}`}
-              onClick={() => setGenre(g)}
+              aria-pressed={genres.includes(g.id)}
+              className={`chip ${genres.includes(g.id) ? "selected" : ""}`}
+              onClick={() => toggleGenre(g.id)}
             >
               {g.name}
-              {done(g) && " ✓"}
             </button>
           ))}
         </div>
-        <button className="btn primary wide" onClick={() => onDaily(genre)}>
-          {done(genre) ? `See today's ${genre.name} results` : `Play today's ${genre.name}`}
+
+        <h3 className="field-label">
+          Years <span className="muted">{allYears ? "All" : from === to ? from : `${from}–${to}`}</span>
+        </h3>
+        <div className="chips" aria-label="Decades">
+          <button
+            aria-pressed={allYears}
+            className={`chip ${allYears ? "selected" : ""}`}
+            onClick={() => update({ from: YEAR_MIN, to: YEAR_MAX })}
+          >
+            All
+          </button>
+          {DECADES.map((d) => (
+            <button
+              key={d}
+              aria-pressed={isDecade(d)}
+              className={`chip ${isDecade(d) ? "selected" : ""}`}
+              onClick={() => update({ from: Math.max(d, YEAR_MIN), to: Math.min(d + 9, YEAR_MAX) })}
+            >
+              {decadeLabel(d)}
+            </button>
+          ))}
+        </div>
+        <label className="year-slider">
+          <span>From</span>
+          <input
+            type="range"
+            min={YEAR_MIN}
+            max={YEAR_MAX}
+            value={from}
+            onChange={(e) => {
+              const y = Number(e.target.value);
+              update({ from: y, to: Math.max(to, y) });
+            }}
+          />
+          <output>{from}</output>
+        </label>
+        <label className="year-slider">
+          <span>To</span>
+          <input
+            type="range"
+            min={YEAR_MIN}
+            max={YEAR_MAX}
+            value={to}
+            onChange={(e) => {
+              const y = Number(e.target.value);
+              update({ to: y, from: Math.min(from, y) });
+            }}
+          />
+          <output>{to}</output>
+        </label>
+
+        <p className={`small ${count < MIN_SONGS ? "error-text" : "muted"}`}>
+          {count < MIN_SONGS
+            ? `Only ${count} song${count === 1 ? "" : "s"} match. Add genres or widen the years.`
+            : `${count} songs match`}
+        </p>
+        <button className="btn primary wide" disabled={count < MIN_SONGS} onClick={() => onPlay(settings)}>
+          Play
         </button>
       </section>
 

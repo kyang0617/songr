@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { DAILY_LENGTH, type DailyGenre } from "../../shared/daily";
-import {
-  DIFFICULTY_LABELS,
-  fetchDailyPuzzle,
-  loadProgress,
-  saveProgress,
-  shareText,
-  timeUntilTomorrow,
-  type DailyProgress,
-} from "../lib/daily";
+import { GAME_LENGTH, type GameSettings, type GameTrack } from "../../shared/game";
+import { describeSettings, DIFFICULTY_LABELS, fetchGame, shareText } from "../lib/game";
 import { describeError } from "../lib/errors";
 import { toGuessOptions } from "../lib/songs";
 import { deezer } from "../sources/deezer";
@@ -16,43 +8,43 @@ import type { GuessOption } from "./GuessInput";
 import { Round, type RoundResult } from "./Round";
 
 interface Props {
-  genre: DailyGenre;
-  date: string;
+  settings: GameSettings;
   onExit: () => void;
+  onPlayAgain: () => void;
 }
 
-/** Five songs of increasing difficulty, the same for everyone on a given day. */
-export function Daily({ genre, date, onExit }: Props) {
-  const [progress, setProgress] = useState<DailyProgress | null>(null);
+/** Five random songs from the chosen genres and years, easiest first. */
+export function QuickPlay({ settings, onExit, onPlayAgain }: Props) {
+  const [tracks, setTracks] = useState<GameTrack[] | null>(null);
+  const [results, setResults] = useState<RoundResult[]>([]);
   const [options, setOptions] = useState<GuessOption[]>([]);
-  // The song on screen. Lags behind progress.results while a reveal is shown.
+  // The song on screen. Lags behind results while a reveal is shown.
   const [index, setIndex] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewMissing, setPreviewMissing] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
-  // Load the puzzle (and any saved progress for today).
+  // Generate the game. A retry after a failed request asks for a new one.
   useEffect(() => {
+    if (tracks) return;
     let cancelled = false;
     setError(null);
-    fetchDailyPuzzle(genre.id, date)
-      .then((puzzle) => {
+    fetchGame(settings)
+      .then((game) => {
         if (cancelled) return;
-        const saved = loadProgress(date, genre.id) ?? { tracks: puzzle.tracks, results: [] };
-        setProgress(saved);
-        setIndex(saved.results.length);
-        const pool = puzzle.pool.map((p) => ({ title: p.title, artists: [p.artist] }));
-        setOptions(toGuessOptions([...pool, ...saved.tracks]));
+        setTracks(game.tracks);
+        const pool = game.pool.map((p) => ({ title: p.title, artists: [p.artist] }));
+        setOptions(toGuessOptions([...pool, ...game.tracks]));
       })
       .catch((err) => !cancelled && setError(describeError(err)));
     return () => {
       cancelled = true;
     };
-  }, [genre.id, date, attempt]);
+  }, [settings, tracks, attempt]);
 
   // Fetch a fresh preview URL for the current song.
-  const track = progress && index < DAILY_LENGTH ? progress.tracks[index] : null;
+  const track = tracks && index < GAME_LENGTH ? tracks[index] : null;
   useEffect(() => {
     if (!track) return;
     let cancelled = false;
@@ -71,14 +63,7 @@ export function Daily({ genre, date, onExit }: Props) {
     };
   }, [track, attempt]);
 
-  const record = (result: RoundResult) => {
-    setProgress((p) => {
-      if (!p) return p;
-      const next = { ...p, results: [...p.results, result] };
-      saveProgress(date, genre.id, next);
-      return next;
-    });
-  };
+  const record = (result: RoundResult) => setResults((r) => [...r, result]);
 
   const skipUnavailable = () => {
     setPreviewMissing(false);
@@ -93,12 +78,12 @@ export function Daily({ genre, date, onExit }: Props) {
           ← Home
         </button>
         <div className="game-title">
-          <h1>Daily SongR · {genre.name}</h1>
-          <p className="muted">{formatDate(date)}</p>
+          <h1>Quick play</h1>
+          <p className="muted">{describeSettings(settings)}</p>
         </div>
       </header>
 
-      {progress && <DailyDots results={progress.results} current={index} />}
+      {tracks && <GameDots results={results} current={index} />}
 
       {error && (
         <div className="error-box">
@@ -124,7 +109,7 @@ export function Daily({ genre, date, onExit }: Props) {
         </div>
       )}
 
-      {!progress && !error && <p className="muted center">Building today's puzzle…</p>}
+      {!tracks && !error && <p className="muted center">Picking songs…</p>}
       {track && !previewUrl && !previewMissing && !error && <p className="muted center">Loading song…</p>}
 
       {track && previewUrl && (
@@ -135,24 +120,26 @@ export function Daily({ genre, date, onExit }: Props) {
           options={options}
           onFinish={record}
           onNext={() => setIndex((i) => i + 1)}
-          nextLabel={index === DAILY_LENGTH - 1 ? "See results" : "Next song"}
+          nextLabel={index === GAME_LENGTH - 1 ? "See results" : "Next song"}
           heading={
             <p className="round-heading">
-              Song {index + 1} of {DAILY_LENGTH} · <strong>{DIFFICULTY_LABELS[index]}</strong>
+              Song {index + 1} of {GAME_LENGTH} · <strong>{DIFFICULTY_LABELS[index]}</strong>
             </p>
           }
         />
       )}
 
-      {progress && index >= DAILY_LENGTH && <Summary genre={genre} date={date} progress={progress} onExit={onExit} />}
+      {tracks && index >= GAME_LENGTH && (
+        <Summary settings={settings} tracks={tracks} results={results} onExit={onExit} onPlayAgain={onPlayAgain} />
+      )}
     </div>
   );
 }
 
-function DailyDots({ results, current }: { results: RoundResult[]; current: number }) {
+function GameDots({ results, current }: { results: RoundResult[]; current: number }) {
   return (
-    <ol className="daily-dots" aria-label="Progress">
-      {Array.from({ length: DAILY_LENGTH }, (_, i) => {
+    <ol className="game-dots" aria-label="Progress">
+      {Array.from({ length: GAME_LENGTH }, (_, i) => {
         const r = results[i];
         const cls = r ? (r.won ? "won" : "lost") : i === current ? "current" : "";
         return (
@@ -165,10 +152,18 @@ function DailyDots({ results, current }: { results: RoundResult[]; current: numb
   );
 }
 
-function Summary({ genre, date, progress, onExit }: { genre: DailyGenre; date: string; progress: DailyProgress; onExit: () => void }) {
+interface SummaryProps {
+  settings: GameSettings;
+  tracks: GameTrack[];
+  results: RoundResult[];
+  onExit: () => void;
+  onPlayAgain: () => void;
+}
+
+function Summary({ settings, tracks, results, onExit, onPlayAgain }: SummaryProps) {
   const [copied, setCopied] = useState(false);
-  const solved = progress.results.filter((r) => r.won).length;
-  const text = useMemo(() => shareText(genre.name, date, progress.results), [genre.name, date, progress.results]);
+  const solved = results.filter((r) => r.won).length;
+  const text = useMemo(() => shareText(settings, results), [settings, results]);
 
   const share = async () => {
     try {
@@ -183,18 +178,18 @@ function Summary({ genre, date, progress, onExit }: { genre: DailyGenre; date: s
   return (
     <div className="summary">
       <h2 className="center">
-        {solved}/{DAILY_LENGTH} solved
+        {solved}/{GAME_LENGTH} solved
       </h2>
       <ul className="summary-list">
-        {progress.tracks.map((t, i) => {
-          const r = progress.results[i];
+        {tracks.map((t, i) => {
+          const r = results[i];
           return (
             <li key={t.id} className={r?.won ? "won" : "lost"}>
               {t.coverUrl ? <img src={t.coverUrl} alt="" /> : <div className="cover-placeholder small" />}
               <div className="summary-info">
                 <span className="summary-title">{t.title}</span>
                 <span className="muted small">
-                  {t.artists.join(", ")} · {DIFFICULTY_LABELS[i]}
+                  {t.artists.join(", ")} · {t.year} · {DIFFICULTY_LABELS[i]}
                 </span>
               </div>
               <span className="summary-result">{r?.won ? `${r.guesses.length}/6` : "✕"}</span>
@@ -204,17 +199,16 @@ function Summary({ genre, date, progress, onExit }: { genre: DailyGenre; date: s
       </ul>
       <pre className="share-preview">{text}</pre>
       <div className="row">
-        <button className="btn primary" onClick={share}>
+        <button className="btn primary" onClick={onPlayAgain}>
+          Play again
+        </button>
+        <button className="btn" onClick={share}>
           {copied ? "Copied!" : "Share result"}
         </button>
         <button className="btn ghost" onClick={onExit}>
-          Try another genre
+          Change settings
         </button>
       </div>
-      <p className="muted center small">Next puzzle in {timeUntilTomorrow()}</p>
     </div>
   );
 }
-
-const formatDate = (date: string) =>
-  new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });

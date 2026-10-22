@@ -190,6 +190,31 @@ p.error-box {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
+.field-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 6px 0 0;
+  display: flex;
+  justify-content: space-between;
+}
+.year-slider {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) 3rem;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+.year-slider input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.year-slider output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.error-text {
+  color: var(--danger);
+}
 .logo {
   width: 72px;
   height: 72px;
@@ -574,9 +599,9 @@ p.error-box {
   }
 }
 
-/* ---- daily ---- */
+/* ---- quick play ---- */
 
-.daily-dots {
+.game-dots {
   list-style: none;
   padding: 0;
   margin: 0 0 16px;
@@ -584,7 +609,7 @@ p.error-box {
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
 }
-.daily-dots li {
+.game-dots li {
   height: 32px;
   border-radius: 8px;
   display: grid;
@@ -595,16 +620,16 @@ p.error-box {
   background: var(--surface);
   border: 1px solid var(--border);
 }
-.daily-dots li.current {
+.game-dots li.current {
   border-color: var(--text);
   color: var(--text);
 }
-.daily-dots li.won {
+.game-dots li.won {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);
 }
-.daily-dots li.lost {
+.game-dots li.lost {
   background: color-mix(in srgb, var(--danger) 20%, transparent);
   border-color: var(--danger);
   color: var(--danger);

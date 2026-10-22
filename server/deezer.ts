@@ -34,6 +34,10 @@ export interface DeezerTrack {
   rank: number;
   link: string;
   readable?: boolean;
+  /** Only on full track lookups (/track/{id}), not in playlist listings. */
+  isrc?: string;
+  /** YYYY-MM-DD of this release, which may be a remaster or compilation. */
+  release_date?: string;
   artist: { id: number; name: string };
   album: { title: string; cover_big?: string; cover_xl?: string };
 }
@@ -77,9 +81,12 @@ async function deezerGet<T>(path: string, attempt = 0): Promise<T | null> {
 // --- public API -------------------------------------------------------------
 
 export async function getTrack(id: number): Promise<{ id: number; preview: string | null } | null> {
-  const track = await deezerGet<DeezerTrack>(`/track/${id}`);
+  const track = await getTrackDetails(id);
   return track ? { id: track.id, preview: track.preview || null } : null;
 }
+
+/** The full track object, including ISRC and release date. */
+export const getTrackDetails = (id: number) => deezerGet<DeezerTrack>(`/track/${id}`);
 
 /** All tracks of a public playlist, following Deezer's `next` pagination. */
 export async function getPlaylistTracks(playlistId: number): Promise<DeezerTrack[]> {

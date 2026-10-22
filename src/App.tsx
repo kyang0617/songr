@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import type { DailyGenre } from "../shared/daily";
-import { localDate } from "./lib/daily";
+import type { GameSettings } from "../shared/game";
 import { describeError } from "./lib/errors";
-import { Daily } from "./components/Daily";
 import { Game } from "./components/Game";
 import { Home } from "./components/Home";
 import { PlaylistLoader } from "./components/PlaylistLoader";
 import { PlaylistPicker } from "./components/PlaylistPicker";
+import { QuickPlay } from "./components/QuickPlay";
 import { deezer } from "./sources/deezer";
 import { spotify } from "./sources/spotify";
 import { handleCallback, logout } from "./sources/spotify/auth";
@@ -19,7 +18,8 @@ const audioSource = deezer;
 type Screen =
   | { name: "callback" }
   | { name: "home"; error?: string }
-  | { name: "daily"; genre: DailyGenre; date: string }
+  // `game` counts games played, so "Play again" remounts with a fresh game.
+  | { name: "play"; settings: GameSettings; game: number }
   | { name: "playlists" }
   | { name: "loading"; playlist: PlaylistSummary }
   | { name: "game"; playlist: PlaylistSummary; tracks: PlayableTrack[]; totalTracks: number };
@@ -59,14 +59,18 @@ export default function App() {
       {screen.name === "callback" && <p className="muted center">Logging in…</p>}
       {screen.name === "home" && (
         <Home
-          date={localDate()}
           error={screen.error}
-          onDaily={(genre) => setScreen({ name: "daily", genre, date: localDate() })}
+          onPlay={(settings) => setScreen({ name: "play", settings, game: 0 })}
           onPlaylists={toPlaylists}
         />
       )}
-      {screen.name === "daily" && (
-        <Daily key={`${screen.date}|${screen.genre.id}`} genre={screen.genre} date={screen.date} onExit={toHome} />
+      {screen.name === "play" && (
+        <QuickPlay
+          key={screen.game}
+          settings={screen.settings}
+          onExit={toHome}
+          onPlayAgain={() => setScreen((s) => (s.name === "play" ? { ...s, game: s.game + 1 } : s))}
+        />
       )}
       {screen.name === "playlists" && (
         <PlaylistPicker

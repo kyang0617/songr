@@ -5,10 +5,10 @@ each wrong guess or skip unlocks more: 1s → 2s → 4s → 7s → 11s → 16s.
 
 Two modes:
 
-- **Daily SongR** (no login). Pick a genre and get 5 songs, easiest to
-  hardest, the same for everyone that day. Songs come from Deezer's editorial
-  playlists. Progress is saved in the browser, and the result can be shared as
-  an emoji grid.
+- **Quick play** (no login). Pick one or more genres and a range of years,
+  and get 5 random songs, easiest to hardest. Every game is new. Songs come
+  from Deezer's editorial playlists, and the result can be shared as an emoji
+  grid.
 - **Your Spotify playlists** (login). Endless rounds from one of your own
   playlists, with score and streak. Spotify provides the playlists; Deezer
   provides the 30-second previews, since Spotify's API no longer returns them.
@@ -18,9 +18,12 @@ Two modes:
 ## How it fits together
 
 ```
-api/daily.ts             GET the daily puzzle for a genre + date
-server/daily.ts          Builds the puzzle: pool, seeded sample, difficulty
-shared/daily.ts          Genre → Deezer playlist config, puzzle types
+api/game.ts              GET a new quick-play game for genres + years
+server/game.ts           Picks the songs: filter, sample, difficulty
+server/catalog.ts        Generated song catalog (year, popularity, genres)
+shared/catalog-index.ts  Generated year + genres per song, for the browser
+shared/game.ts           Genre → Deezer playlist config, game types
+scripts/build-catalog.ts Builds the catalog from Deezer + MusicBrainz
 api/deezer/match.ts      POST batch matcher  (Vercel function)
 api/deezer/track.ts      GET fresh preview URL by Deezer ID
 server/deezer.ts         Deezer client: throttling, ISRC lookup, search fallback
@@ -28,8 +31,8 @@ shared/normalize.ts      Title/artist cleanup, used by browser and server
 src/sources/types.ts     PlaylistSource + AudioSource interfaces
 src/sources/spotify/     PKCE auth + Spotify PlaylistSource
 src/sources/deezer.ts    Deezer AudioSource (calls /api, caches match IDs)
-src/components/          Home, Daily, Round (one song), Game (endless), …
-src/lib/daily.ts         Daily progress in localStorage, share text
+src/components/          Home, QuickPlay, Round (one song), Game (endless), …
+src/lib/game.ts          Settings, song counts, recent songs, share text
 src/hooks/usePreviewPlayer.ts  Audio element clipped to the reveal limit
 vite.config.ts           Mounts the /api handlers on the dev server
 ```
@@ -48,26 +51,54 @@ vite.config.ts           Mounts the /api handlers on the dev server
   reports a quota error anyway, it backs off and retries. The client sends
   tracks in batches of 25.
 
-## How the daily puzzle works
+## How quick play works
 
-1. `shared/daily.ts` lists a few Deezer editorial playlists per genre (Pop
-   Essentials, 90s Hits, …). The server pools their tracks, drops those
-   without a preview, and keeps one version of each song.
-2. A random generator seeded with `date|genre` shuffles the pool and takes
-   30 songs by different artists, so every player gets the same puzzle.
-3. Each song gets a popularity score: the higher of Deezer's stream-based
-   `rank` and the artist's fan count. The fan count covers famous songs that
-   a playlist links on a little-played remaster. The 30 are sorted, and one
-   song is picked from each fifth: Easy, Medium, Tricky, Hard, Expert.
-4. The response has no preview URLs, so Vercel's CDN caches it per date
-   (`s-maxage`), and the server also keeps it in memory. The browser saves
-   the puzzle's songs with your progress, so a reload never changes them.
+Songs come from a catalog that's built ahead of time, so starting a game is
+instant and makes no Deezer calls.
 
-To add a genre, find playlists with `curl https://api.deezer.com/chart/{genreId}/playlists`
-(genre IDs: `curl https://api.deezer.com/genre`) and add an entry to `DAILY_GENRES`.
+1. **Building the catalog** (`npm run catalog`). `shared/game.ts` lists
+   Deezer editorial playlists of 2000s-and-later songs for each genre (00s
+   Hits, Rap Bangers, Country Party, …). The script pools their tracks, drops
+   those without a preview, keeps one version of each song, and records:
+   - **Year.** The earliest of Deezer's release date and the year in the
+     song's ISRC (characters 6–7 are when the recording was registered).
+     Both can be late, never early: a 2000 hit on a 2018 "Greatest Hits"
+     release says 2018 on Deezer, but its ISRC says 2000.
+   - **Popularity.** The higher of Deezer's stream-based `rank` and the
+     artist's fan count. The fan count covers famous songs that a playlist
+     links on a little-played release.
+   - **Genres.** Every genre whose playlists include the song.
 
-The Spotify sections below are only needed for the playlist mode. The daily
-mode works without any setup.
+   The catalog starts at `FIRST_YEAR` (2000). Songs dated earlier are
+   dropped: an old ISRC is how a remastered classic gives itself away. That
+   matters because Deezer dates remasters by the remaster, so a 1975 song can
+   look like a 2011 one. Before 2000 that's most songs; from 2000 on, it's
+   rare (about 1 in 20 is a year or more late, usually a 2000s song on a later
+   compilation).
+
+   The script writes `server/catalog.ts` and a small `shared/catalog-index.ts`
+   (year and genres only), which the home screen uses to count matching songs
+   as you change the settings. It takes about a minute. Commit the generated
+   files.
+
+   **Adding older decades.** Lower `FIRST_YEAR`, add older playlists, and run
+   `npm run catalog -- --musicbrainz`. That looks up each song's original
+   year on MusicBrainz (by ISRC, else by title and artist). MusicBrainz allows
+   about one request per second, so the first run takes about 45 minutes;
+   lookups are cached in `scripts/.cache`, so later runs only fetch new songs.
+2. **Starting a game** (`/api/game`). The server filters the catalog by genre
+   and year, takes a random sample of 30 songs by different artists, sorts
+   them by popularity, and picks one from each fifth: Easy, Medium, Tricky,
+   Hard, Expert. Songs from your last 100 are skipped when the range has
+   enough others. Guess suggestions cover every song in the chosen genres,
+   from any year, so the answer can't be narrowed down from the list.
+
+To add a genre or playlist, find playlists with `curl https://api.deezer.com/chart/{genreId}/playlists`
+(genre IDs: `curl https://api.deezer.com/genre`), edit `GENRES`, and run
+`npm run catalog`.
+
+The Spotify sections below are only needed for the playlist mode. Quick
+play works without any setup.
 
 ## 1. Create the Spotify app
 
@@ -129,7 +160,7 @@ curl -s -X POST http://127.0.0.1:5173/api/deezer/match \
 curl -s 'http://127.0.0.1:5173/api/deezer/track?id=908604612'
 ```
 
-Other scripts: `npm run typecheck`, `npm run build`, `npm run preview`.
+Other scripts: `npm run catalog` (see above), `npm run typecheck`, `npm run build`, `npm run preview`.
 
 ## 3. Deploy to Vercel
 
@@ -164,8 +195,11 @@ enough for day-to-day work.
 
 ## Ideas for later
 
-- Daily streaks across days, and a stats page.
-- Search the whole Deezer catalogue for daily guesses, not just the genre pool.
+- Stats across games (solve rate per difficulty, best decade).
+- Rebuild the catalog on a schedule (e.g. a monthly GitHub Action), so new hits show up.
+- Add Billboard's year-end Hot 100 lists (from Wikipedia) as a source: the
+  biggest hits of each year, with the year included. It would fill out
+  2010–2019, the thinnest part of the catalog.
 - Use Last.fm play counts as a second difficulty signal.
 - Cache tracks that failed to match, so they aren't retried on every load.
 - Move the Deezer throttle to a shared store, such as Vercel KV, if several
