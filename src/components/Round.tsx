@@ -42,11 +42,11 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
   const limit = finished ? PREVIEW_LENGTH : STEPS[attempt];
   const player = usePreviewPlayer(previewUrl, limit);
 
-  // Play the full preview as soon as the answer is revealed.
-  const { play, stop } = player;
+  // Play the full preview from the start as soon as the answer is revealed.
+  const { replay, stop } = player;
   useEffect(() => {
-    if (finished) play();
-  }, [finished, play]);
+    if (finished) replay();
+  }, [finished, replay]);
 
   const record = (guess: Guess) => {
     stop();

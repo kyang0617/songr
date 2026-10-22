@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Plays `url` from the start and stops at `limitSec`. Uses requestAnimationFrame
- * to check the position (the audio "timeupdate" event only fires ~4x/second,
- * far too coarse for a 1-second clip).
+ * Plays `url` up to `limitSec`. `play` picks up where playback last stopped
+ * (so after a skip unlocks more, you hear only the new part), or starts over
+ * once everything unlocked has been heard. `replay` always starts from 0.
+ * Uses requestAnimationFrame to check the position (the audio "timeupdate"
+ * event only fires ~4x/second, far too coarse for a 1-second clip).
  */
 export function usePreviewPlayer(url: string | null, limitSec: number) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const frameRef = useRef(0);
   const limitRef = useRef(limitSec);
+  // Where playback stopped, in seconds. A ref, so play() reads the latest.
+  const positionRef = useRef(0);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [ready, setReady] = useState(false);
@@ -16,16 +20,25 @@ export function usePreviewPlayer(url: string | null, limitSec: number) {
 
   limitRef.current = limitSec;
 
+  const moveTo = useCallback((sec: number) => {
+    positionRef.current = sec;
+    setPosition(sec);
+  }, []);
+
   const stop = useCallback(() => {
     cancelAnimationFrame(frameRef.current);
-    audioRef.current?.pause();
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      moveTo(Math.min(audio.currentTime, limitRef.current));
+    }
     setPlaying(false);
-  }, []);
+  }, [moveTo]);
 
   useEffect(() => {
     setReady(false);
     setError(null);
-    setPosition(0);
+    moveTo(0);
     if (!url) return;
 
     const audio = new Audio();
@@ -44,14 +57,14 @@ export function usePreviewPlayer(url: string | null, limitSec: number) {
       audioRef.current = null;
       setPlaying(false);
     };
-  }, [url, stop]);
+  }, [url, stop, moveTo]);
 
-  const play = useCallback(async () => {
+  const playFrom = useCallback(async (start: number) => {
     const audio = audioRef.current;
     if (!audio) return;
     cancelAnimationFrame(frameRef.current);
-    audio.currentTime = 0;
-    setPosition(0);
+    audio.currentTime = start;
+    moveTo(start);
     try {
       await audio.play();
     } catch {
@@ -62,17 +75,26 @@ export function usePreviewPlayer(url: string | null, limitSec: number) {
     const tick = () => {
       if (audio.currentTime >= limitRef.current) {
         audio.pause();
-        setPosition(limitRef.current);
+        moveTo(limitRef.current);
         setPlaying(false);
         return;
       }
-      setPosition(audio.currentTime);
+      moveTo(audio.currentTime);
       frameRef.current = requestAnimationFrame(tick);
     };
     frameRef.current = requestAnimationFrame(tick);
-  }, []);
+  }, [moveTo]);
+
+  // Resume, unless everything unlocked has been heard (within a few
+  // milliseconds: the stop check runs once per frame).
+  const play = useCallback(() => {
+    const at = positionRef.current;
+    return playFrom(at < limitRef.current - 0.05 ? at : 0);
+  }, [playFrom]);
+
+  const replay = useCallback(() => playFrom(0), [playFrom]);
 
   const toggle = useCallback(() => (playing ? stop() : play()), [playing, play, stop]);
 
-  return { playing, position, ready, error, play, stop, toggle };
+  return { playing, position, ready, error, play, replay, stop, toggle };
 }
