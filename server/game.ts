@@ -6,11 +6,18 @@
 import { GAME_LENGTH, type CatalogSong, type Game, type GameSettings, type GameTrack } from "../shared/game.js";
 import { CATALOG } from "./catalog.js";
 
+/**
+ * Each slot's share of the popularity ranking, Easy first. Slots take
+ * consecutive stretches of the ranking; songs past the last one are never
+ * picked.
+ */
+const SLOT_SHARES = [0.2, 0.2, 0.2, 0.2, 0.2];
+
 export class NotEnoughSongsError extends Error {}
 
 /**
  * @param recent Deezer IDs the player had in recent games. Avoided when
- *   their fifth has other songs, so famous ones don't come up every time.
+ *   their slot has other songs, so famous ones don't come up every time.
  */
 export function generateGame(
   settings: GameSettings,
@@ -24,22 +31,24 @@ export function generateGame(
     throw new NotEnoughSongsError("Not enough songs in that range. Try more genres or a wider range of years.");
   }
 
-  // Every song in range, ranked by popularity and split into fifths: Easy
-  // is the most popular fifth, Expert the least. Difficulty is relative to
-  // the chosen genres and years. One pick per fifth, by different artists,
-  // preferring songs the player hasn't had recently.
+  // Every song in range, ranked by popularity and split into slots (see
+  // SLOT_SHARES), so difficulty is relative to the chosen genres and years.
+  // One pick per slot, by different artists, preferring songs the player
+  // hasn't had recently.
   const ranked = [...inRange].sort((a, b) => b.popularity - a.popularity);
   const used = new Set<number>();
   const open = (s: CatalogSong) => !used.has(s.artistId);
   const picks: CatalogSong[] = [];
-  for (let i = 0; i < GAME_LENGTH; i++) {
-    const start = Math.floor((i * ranked.length) / GAME_LENGTH);
-    const end = Math.floor(((i + 1) * ranked.length) / GAME_LENGTH);
-    const fifth = ranked.slice(start, end).filter(open);
-    const fresh = fifth.filter((s) => !recent.has(s.id));
-    // A small range can run out of new artists in a fifth: take the
+  let share = 0;
+  for (const slotShare of SLOT_SHARES) {
+    const start = Math.floor(share * ranked.length);
+    share += slotShare;
+    const end = Math.max(Math.floor(share * ranked.length), start + 1);
+    const slot = ranked.slice(start, end).filter(open);
+    const fresh = slot.filter((s) => !recent.has(s.id));
+    // A small range can run out of new artists in a slot: take the
     // nearest-ranked song by a new artist instead.
-    const choices = fresh.length ? fresh : fifth.length ? fifth : [nearest(ranked, (start + end) / 2, open)];
+    const choices = fresh.length ? fresh : slot.length ? slot : [nearest(ranked, (start + end) / 2, open)];
     const pick = choices[Math.floor(rng() * choices.length)];
     used.add(pick.artistId);
     picks.push(pick);
