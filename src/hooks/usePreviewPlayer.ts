@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 /**
  * Plays `url` up to `limitSec`. `play` picks up where playback last stopped
  * (so after a skip unlocks more, you hear only the new part), or starts over
- * once everything unlocked has been heard. `replay` always starts from 0.
+ * once everything unlocked has been heard. `replay` always starts from 0,
+ * `seek` from any point heard so far, and `playTo` raises the limit and
+ * plays on without waiting for the next render.
  * Uses requestAnimationFrame to check the position (the audio "timeupdate"
  * event only fires ~4x/second, far too coarse for a 1-second clip).
  */
@@ -94,7 +96,17 @@ export function usePreviewPlayer(url: string | null, limitSec: number) {
 
   const replay = useCallback(() => playFrom(0), [playFrom]);
 
+  const seek = useCallback((sec: number) => playFrom(Math.min(sec, limitRef.current)), [playFrom]);
+
+  const playTo = useCallback(
+    (sec: number) => {
+      limitRef.current = sec;
+      return play();
+    },
+    [play],
+  );
+
   const toggle = useCallback(() => (playing ? stop() : play()), [playing, play, stop]);
 
-  return { playing, position, ready, error, play, replay, stop, toggle };
+  return { playing, position, ready, error, play, replay, seek, playTo, stop, toggle };
 }

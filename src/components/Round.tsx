@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePreviewPlayer } from "../hooks/usePreviewPlayer";
-import { basePoints } from "../lib/score";
+import { basePoints, formatPoints } from "../lib/score";
 import { songKey } from "../lib/songs";
 import type { PlayableTrack } from "../sources/types";
 import { GuessInput, type GuessOption } from "./GuessInput";
@@ -42,6 +42,8 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
   const [guesses, setGuesses] = useState<Guess[]>([]);
   // Seconds the player can hear. Each attempt unlocks at least its step.
   const [unlocked, setUnlocked] = useState(STEPS[0]);
+  // The second under the pointer on the progress bar, if any.
+  const [preview, setPreview] = useState<number | null>(null);
   const won = guesses.at(-1)?.kind === "correct";
   const finished = won || guesses.length >= STEPS.length;
 
@@ -67,6 +69,15 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
       setUnlocked((u) => Math.max(u, STEPS[next.length]));
     }
   };
+
+  // Picking past what's unlocked unlocks up to there and plays on (it costs
+  // points); picking inside it jumps there, like a video's progress bar.
+  const select = (sec: number) => {
+    if (finished || sec <= unlocked) return player.seek(sec);
+    setUnlocked(sec);
+    player.playTo(sec);
+  };
+  const shownPoints = Math.round(basePoints(Math.max(unlocked, preview ?? 0)) * multiplier);
 
   const answerKey = songKey(track.title, track.artists[0] ?? "");
   const onGuess = (option: GuessOption) =>
@@ -104,6 +115,8 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
           unlockedSec={limit}
           positionSec={player.position}
           markers={finished ? [] : STEPS.slice(0, -1)}
+          onSelect={select}
+          onPreview={finished ? undefined : setPreview}
         />
         <div className="player-row">
           <span className="time">{formatTime(player.position)}</span>
@@ -130,6 +143,12 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
           </div>
           <span className="time">{formatTime(limit)}</span>
         </div>
+        {!finished && (
+          <p className={`worth center small ${preview !== null && preview > unlocked ? "previewing" : "muted"}`}>
+            Worth {formatPoints(shownPoints)} pts
+            {multiplier !== 1 && ` (×${multiplier})`}
+          </p>
+        )}
         {!player.ready && !player.error && <p className="muted center small">Loading preview…</p>}
         {player.error && <p className="error-text center">{player.error}</p>}
       </div>

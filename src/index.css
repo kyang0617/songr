@@ -405,6 +405,39 @@ p.error-box {
 .player {
   margin-bottom: 20px;
 }
+.progress-track {
+  position: relative;
+}
+.progress-track.pickable {
+  /* A taller hit area than the bar itself, easier to grab on touch. */
+  padding: 10px 0;
+  margin: -10px 0;
+  cursor: pointer;
+  touch-action: none;
+}
+.progress-preview {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+  pointer-events: none;
+}
+.worth {
+  margin: 8px 0 0;
+}
+.worth.previewing {
+  color: var(--accent);
+}
 .progress {
   position: relative;
   height: 12px;
