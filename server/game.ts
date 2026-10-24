@@ -7,11 +7,14 @@ import { GAME_LENGTH, type CatalogSong, type Game, type GameSettings, type GameT
 import { CATALOG } from "./catalog.js";
 
 /**
- * Each slot's share of the popularity ranking, Easy first. Slots take
- * consecutive stretches of the ranking; songs past the last one are never
- * picked.
+ * How much of the popularity ranking each slot covers, Easy first, as
+ * relative weights. Slots take consecutive stretches of the top
+ * PICKED_SHARE of the ranking; the rest are too obscure to ever be picked.
  */
-const SLOT_SHARES = [0.2, 0.2, 0.2, 0.2, 0.2];
+const SLOT_WEIGHTS = [30, 25, 20, 15, 10];
+const PICKED_SHARE = 0.9;
+/** Songs per slot at least, so small ranges don't repeat the same pick. */
+const MIN_SLOT_SIZE = 3;
 
 export class NotEnoughSongsError extends Error {}
 
@@ -32,18 +35,19 @@ export function generateGame(
   }
 
   // Every song in range, ranked by popularity and split into slots (see
-  // SLOT_SHARES), so difficulty is relative to the chosen genres and years.
+  // SLOT_WEIGHTS), so difficulty is relative to the chosen genres and years.
   // One pick per slot, by different artists, preferring songs the player
   // hasn't had recently.
   const ranked = [...inRange].sort((a, b) => b.popularity - a.popularity);
   const used = new Set<number>();
   const open = (s: CatalogSong) => !used.has(s.artistId);
   const picks: CatalogSong[] = [];
+  const totalWeight = SLOT_WEIGHTS.reduce((sum, w) => sum + w, 0);
   let share = 0;
-  for (const slotShare of SLOT_SHARES) {
+  for (const weight of SLOT_WEIGHTS) {
     const start = Math.floor(share * ranked.length);
-    share += slotShare;
-    const end = Math.max(Math.floor(share * ranked.length), start + 1);
+    share += (weight / totalWeight) * PICKED_SHARE;
+    const end = Math.min(Math.max(Math.floor(share * ranked.length), start + MIN_SLOT_SIZE), ranked.length);
     const slot = ranked.slice(start, end).filter(open);
     const fresh = slot.filter((s) => !recent.has(s.id));
     // A small range can run out of new artists in a slot: take the
