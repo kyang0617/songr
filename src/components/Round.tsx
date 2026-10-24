@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePreviewPlayer } from "../hooks/usePreviewPlayer";
+import { basePoints } from "../lib/score";
 import { songKey } from "../lib/songs";
 import type { PlayableTrack } from "../sources/types";
 import { GuessInput, type GuessOption } from "./GuessInput";
@@ -18,6 +19,8 @@ export interface Guess {
 export interface RoundResult {
   won: boolean;
   guesses: Guess[];
+  /** Including the difficulty multiplier. 0 unless won. */
+  points: number;
 }
 
 interface Props {
@@ -30,16 +33,21 @@ interface Props {
   nextLabel: string;
   /** Shown above the attempts, e.g. "Song 2 of 5 · Medium". */
   heading?: ReactNode;
+  /** Points multiplier for the song's difficulty. */
+  multiplier?: number;
 }
 
 /** One song: play the clip, guess or skip, then reveal. Remount (via `key`) for each new song. */
-export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel, heading }: Props) {
+export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel, heading, multiplier = 1 }: Props) {
   const [guesses, setGuesses] = useState<Guess[]>([]);
+  // Seconds the player can hear. Each attempt unlocks at least its step.
+  const [unlocked, setUnlocked] = useState(STEPS[0]);
   const won = guesses.at(-1)?.kind === "correct";
   const finished = won || guesses.length >= STEPS.length;
 
   const attempt = guesses.length;
-  const limit = finished ? PREVIEW_LENGTH : STEPS[attempt];
+  const limit = finished ? PREVIEW_LENGTH : unlocked;
+  const points = Math.round(basePoints(unlocked) * multiplier);
   const player = usePreviewPlayer(previewUrl, limit);
 
   // Play the full preview from the start as soon as the answer is revealed.
@@ -53,7 +61,10 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
     const next = [...guesses, guess];
     setGuesses(next);
     if (guess.kind === "correct" || next.length >= STEPS.length) {
-      onFinish({ won: guess.kind === "correct", guesses: next });
+      const correct = guess.kind === "correct";
+      onFinish({ won: correct, guesses: next, points: correct ? points : 0 });
+    } else {
+      setUnlocked((u) => Math.max(u, STEPS[next.length]));
     }
   };
 
@@ -62,7 +73,8 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
     record({ label: option.label, kind: option.key === answerKey ? "correct" : "wrong" });
 
   const isLastAttempt = attempt === STEPS.length - 1;
-  const skipLabel = isLastAttempt ? "Give up" : `Skip (+${STEPS[attempt + 1] - STEPS[attempt]}s)`;
+  const skipGain = isLastAttempt ? 0 : STEPS[attempt + 1] - unlocked;
+  const skipLabel = isLastAttempt ? "Give up" : skipGain > 0 ? `Skip (+${formatSeconds(skipGain)}s)` : "Skip";
   const wrongKeys = useMemo(
     () => new Set(options.filter((o) => guesses.some((g) => g.label === o.label)).map((o) => o.key)),
     [options, guesses],
@@ -145,3 +157,5 @@ function ReplayIcon() {
 }
 
 const formatTime = (sec: number) => `0:${String(Math.floor(sec)).padStart(2, "0")}`;
+/** 3, or 2.5 for a selection between whole seconds. */
+const formatSeconds = (sec: number) => String(Math.round(sec * 10) / 10);

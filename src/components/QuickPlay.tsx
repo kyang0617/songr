@@ -67,7 +67,7 @@ export function QuickPlay({ settings, onExit, onPlayAgain }: Props) {
 
   const skipUnavailable = () => {
     setPreviewMissing(false);
-    record({ won: false, guesses: [] });
+    record({ won: false, guesses: [], points: 0 });
     setIndex((i) => i + 1);
   };
 
