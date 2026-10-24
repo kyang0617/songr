@@ -6,13 +6,21 @@
 import { GAME_LENGTH, type CatalogSong, type Game, type GameSettings, type GameTrack } from "../shared/game.js";
 import { CATALOG } from "./catalog.js";
 
-const SAMPLE_SIZE = 30;
+/**
+ * How much of the popularity ranking each slot covers, Easy first, as
+ * relative weights. Slots take consecutive stretches of the top
+ * PICKED_SHARE of the ranking; the rest are too obscure to ever be picked.
+ */
+const SLOT_WEIGHTS = [30, 25, 20, 15, 10];
+const PICKED_SHARE = 0.9;
+/** Songs per slot at least, so small ranges don't repeat the same pick. */
+const MIN_SLOT_SIZE = 3;
 
 export class NotEnoughSongsError extends Error {}
 
 /**
- * @param recent Deezer IDs the player had in recent games. Avoided when the
- *   range has enough other songs, so famous ones don't come up every time.
+ * @param recent Deezer IDs the player had in recent games. Avoided when
+ *   their slot has other songs, so famous ones don't come up every time.
  */
 export function generateGame(
   settings: GameSettings,
@@ -22,23 +30,34 @@ export function generateGame(
 ): Game {
   const inGenres = songs.filter((s) => s.genres.some((g) => settings.genres.includes(g)));
   const inRange = inGenres.filter((s) => s.year >= settings.from && s.year <= settings.to);
-  const fresh = inRange.filter((s) => !recent.has(s.id));
-  const candidates = artistCount(fresh) >= GAME_LENGTH * 3 ? fresh : inRange;
-  if (artistCount(candidates) < GAME_LENGTH) {
+  if (artistCount(inRange) < GAME_LENGTH) {
     throw new NotEnoughSongsError("Not enough songs in that range. Try more genres or a wider range of years.");
   }
 
-  // A random sample by different artists, ranked by popularity. One pick
-  // from each fifth of the ranking: most popular fifth first.
-  const ranked = sampleDistinctArtists(shuffle(candidates, rng), SAMPLE_SIZE).sort(
-    (a, b) => b.popularity - a.popularity,
-  );
+  // Every song in range, ranked by popularity and split into slots (see
+  // SLOT_WEIGHTS), so difficulty is relative to the chosen genres and years.
+  // One pick per slot, by different artists, preferring songs the player
+  // hasn't had recently.
+  const ranked = [...inRange].sort((a, b) => b.popularity - a.popularity);
+  const used = new Set<number>();
+  const open = (s: CatalogSong) => !used.has(s.artistId);
   const picks: CatalogSong[] = [];
-  for (let i = 0; i < GAME_LENGTH; i++) {
-    const start = Math.floor((i * ranked.length) / GAME_LENGTH);
-    const end = Math.floor(((i + 1) * ranked.length) / GAME_LENGTH);
-    picks.push(ranked[start + Math.floor(rng() * (end - start))]);
+  const totalWeight = SLOT_WEIGHTS.reduce((sum, w) => sum + w, 0);
+  let share = 0;
+  for (const weight of SLOT_WEIGHTS) {
+    const start = Math.floor(share * ranked.length);
+    share += (weight / totalWeight) * PICKED_SHARE;
+    const end = Math.min(Math.max(Math.floor(share * ranked.length), start + MIN_SLOT_SIZE), ranked.length);
+    const slot = ranked.slice(start, end).filter(open);
+    const fresh = slot.filter((s) => !recent.has(s.id));
+    // A small range can run out of new artists in a slot: take the
+    // nearest-ranked song by a new artist instead.
+    const choices = fresh.length ? fresh : slot.length ? slot : [nearest(ranked, (start + end) / 2, open)];
+    const pick = choices[Math.floor(rng() * choices.length)];
+    used.add(pick.artistId);
+    picks.push(pick);
   }
+  picks.sort((a, b) => b.popularity - a.popularity);
 
   return {
     tracks: picks.map(toGameTrack),
@@ -48,16 +67,13 @@ export function generateGame(
 
 const artistCount = (songs: CatalogSong[]) => new Set(songs.map((s) => s.artistId)).size;
 
-function sampleDistinctArtists(songs: CatalogSong[], size: number): CatalogSong[] {
-  const seen = new Set<number>();
-  const sample: CatalogSong[] = [];
-  for (const s of songs) {
-    if (seen.has(s.artistId)) continue;
-    seen.add(s.artistId);
-    sample.push(s);
-    if (sample.length === size) break;
-  }
-  return sample;
+/** The song closest to `rank` in the ranking that passes `ok`. */
+function nearest(ranked: CatalogSong[], rank: number, ok: (s: CatalogSong) => boolean): CatalogSong {
+  let best = -1;
+  ranked.forEach((s, i) => {
+    if (ok(s) && (best < 0 || Math.abs(i - rank) < Math.abs(best - rank))) best = i;
+  });
+  return ranked[best];
 }
 
 function toGameTrack(s: CatalogSong): GameTrack {
@@ -75,13 +91,4 @@ function toGameTrack(s: CatalogSong): GameTrack {
     year: s.year,
     popularity: s.popularity,
   };
-}
-
-function shuffle<T>(items: T[], rng: () => number): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
