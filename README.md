@@ -88,10 +88,11 @@ instant and makes no Deezer calls.
    about one request per second, so the first run takes about 45 minutes;
    lookups are cached in `scripts/.cache`, so later runs only fetch new songs.
 2. **Starting a game** (`/api/game`). The server filters the catalog by genre
-   and year, takes a random sample of 30 songs by different artists, sorts
-   them by popularity, and picks one from each fifth: Easy, Medium, Tricky,
-   Hard, Expert. Songs from your last 100 are skipped when the range has
-   enough others. Guess suggestions cover every song in the chosen genres,
+   and year, ranks every song in range by popularity, and picks one song from
+   each fifth of the ranking, all by different artists: Easy, Medium, Tricky,
+   Hard, Expert. Difficulty is relative to the genres and years you pick, so
+   Easy is the best-known fifth of country, not of pop. Songs from your last
+   100 are skipped when their fifth has others. Guess suggestions cover every song in the chosen genres,
    from any year, so the answer can't be narrowed down from the list.
 
 To add a genre or playlist, find playlists with `curl https://api.deezer.com/chart/{genreId}/playlists`
