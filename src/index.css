@@ -344,7 +344,7 @@ p.error-box {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -605,6 +605,13 @@ p.error-box {
 .reveal-result.lost {
   color: var(--danger);
 }
+.reveal-points {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: -4px 0 12px;
+}
 .reveal-card {
   display: flex;
   gap: 16px;
@@ -745,11 +752,19 @@ p.error-box {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.summary-points {
+  margin-bottom: 0;
+  font-variant-numeric: tabular-nums;
+}
 .summary-result {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.summary-list li.lost .summary-result {
+.summary-list li.lost .summary-points {
+  margin-bottom: 0;
+  font-variant-numeric: tabular-nums;
+}
+.summary-result {
   color: var(--danger);
 }
 .share-preview {

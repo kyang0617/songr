@@ -1,19 +1,22 @@
+import { formatPoints } from "../lib/score";
 import type { PlayableTrack } from "../sources/types";
 
 interface Props {
   track: PlayableTrack;
   won: boolean;
   attempts: number;
+  points: number;
   onNext: () => void;
   nextLabel: string;
 }
 
-export function Reveal({ track, won, attempts, onNext, nextLabel }: Props) {
+export function Reveal({ track, won, attempts, points, onNext, nextLabel }: Props) {
   return (
     <div className="reveal">
       <p className={`reveal-result ${won ? "won" : "lost"}`}>
         {won ? `Got it in ${attempts} ${attempts === 1 ? "try" : "tries"}!` : "Out of attempts — it was:"}
       </p>
+      {won && <p className="reveal-points">+{formatPoints(points)} pts</p>}
       <div className="reveal-card">
         {track.coverUrl ? (
           <img className="reveal-cover" src={track.coverUrl} alt={`${track.album} cover`} />

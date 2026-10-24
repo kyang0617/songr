@@ -44,6 +44,8 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
   const [unlocked, setUnlocked] = useState(STEPS[0]);
   // The second under the pointer on the progress bar, if any.
   const [preview, setPreview] = useState<number | null>(null);
+  // Kept once the round ends, for the reveal.
+  const [earned, setEarned] = useState(0);
   const won = guesses.at(-1)?.kind === "correct";
   const finished = won || guesses.length >= STEPS.length;
 
@@ -64,6 +66,7 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
     setGuesses(next);
     if (guess.kind === "correct" || next.length >= STEPS.length) {
       const correct = guess.kind === "correct";
+      setEarned(correct ? points : 0);
       onFinish({ won: correct, guesses: next, points: correct ? points : 0 });
     } else {
       setUnlocked((u) => Math.max(u, STEPS[next.length]));
@@ -95,7 +98,7 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
     <>
       {heading}
       {finished ? (
-        <Reveal track={track} won={won} attempts={guesses.length} onNext={onNext} nextLabel={nextLabel} />
+        <Reveal track={track} won={won} attempts={guesses.length} points={earned} onNext={onNext} nextLabel={nextLabel} />
       ) : (
         <ol className="attempts">
           {STEPS.map((_, i) => {
