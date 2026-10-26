@@ -2,9 +2,12 @@ import { CATALOG_INDEX } from "../../shared/catalog-index";
 import { GAME_LENGTH, GENRES, type Game, type GameSettings } from "../../shared/game";
 import type { RoundResult } from "../components/Round";
 import { STEPS } from "../components/Round";
+import { formatPoints } from "./score";
 import { readJSON, writeJSON } from "./storage";
 
 export const DIFFICULTY_LABELS = ["Easy", "Medium", "Tricky", "Hard", "Expert"];
+/** Points multiplier for each song of a game, by difficulty. */
+export const DIFFICULTY_MULTIPLIERS = [1, 1.2, 1.4, 1.7, 2];
 
 export const YEAR_MIN = Math.min(...CATALOG_INDEX.map(([year]) => year));
 export const YEAR_MAX = Math.max(...CATALOG_INDEX.map(([year]) => year));
@@ -66,9 +69,10 @@ export async function fetchGame(settings: GameSettings): Promise<Game> {
 
 // --- sharing ----------------------------------------------------------------
 
-/** e.g. "SongR · Pop + Rock · 1980–1999 · 4/5" plus one emoji row per song. */
+/** e.g. "SongR · Pop + Rock · 1980–1999 · 4/5 · 41,230 pts" plus one emoji row per song. */
 export function shareText(settings: GameSettings, results: RoundResult[]): string {
   const solved = results.filter((r) => r.won).length;
+  const points = results.reduce((sum, r) => sum + r.points, 0);
   const rows = results.map((r) =>
     STEPS.map((_, i) => {
       const g = r.guesses[i];
@@ -76,5 +80,6 @@ export function shareText(settings: GameSettings, results: RoundResult[]): strin
       return g.kind === "correct" ? "🟩" : g.kind === "wrong" ? "🟥" : "⬛";
     }).join(""),
   );
-  return [`SongR · ${describeSettings(settings)} · ${solved}/${GAME_LENGTH}`, ...rows].join("\n");
+  const header = `SongR · ${describeSettings(settings)} · ${solved}/${GAME_LENGTH} · ${formatPoints(points)} pts`;
+  return [header, ...rows].join("\n");
 }

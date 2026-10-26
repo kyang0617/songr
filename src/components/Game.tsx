@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Deck } from "../lib/deck";
 import { describeError } from "../lib/errors";
+import { formatPoints } from "../lib/score";
 import { toGuessOptions } from "../lib/songs";
 import { deezer } from "../sources/deezer";
 import type { PlayableTrack, PlaylistSummary } from "../sources/types";
@@ -9,6 +10,7 @@ import { Round, type RoundResult } from "./Round";
 const FEW_TRACKS = 5;
 
 interface Stats {
+  points: number;
   played: number;
   correct: number;
   streak: number;
@@ -29,7 +31,7 @@ export function Game({ playlist, tracks, totalTracks, onExit }: Props) {
   const [round, setRound] = useState<{ n: number; track: PlayableTrack; previewUrl: string } | null>(null);
   const [loadingRound, setLoadingRound] = useState(false);
   const [roundError, setRoundError] = useState<string | null>(null);
-  const [stats, setStats] = useState<Stats>({ played: 0, correct: 0, streak: 0, best: 0 });
+  const [stats, setStats] = useState<Stats>({ points: 0, played: 0, correct: 0, streak: 0, best: 0 });
 
   const options = useMemo(() => toGuessOptions(tracks), [tracks]);
 
@@ -70,10 +72,16 @@ export function Game({ playlist, tracks, totalTracks, onExit }: Props) {
     startRound();
   }, [startRound]);
 
-  const onFinish = ({ won }: RoundResult) =>
+  const onFinish = ({ won, points }: RoundResult) =>
     setStats((s) => {
       const streak = won ? s.streak + 1 : 0;
-      return { played: s.played + 1, correct: s.correct + (won ? 1 : 0), streak, best: Math.max(s.best, streak) };
+      return {
+        points: s.points + points,
+        played: s.played + 1,
+        correct: s.correct + (won ? 1 : 0),
+        streak,
+        best: Math.max(s.best, streak),
+      };
     });
 
   return (
@@ -91,7 +99,8 @@ export function Game({ playlist, tracks, totalTracks, onExit }: Props) {
       </header>
 
       <div className="stats">
-        <Stat label="Score" value={`${stats.correct}/${stats.played}`} />
+        <Stat label="Points" value={formatPoints(stats.points)} />
+        <Stat label="Solved" value={`${stats.correct}/${stats.played}`} />
         <Stat label="Streak" value={stats.streak} />
         <Stat label="Best" value={stats.best} />
       </div>

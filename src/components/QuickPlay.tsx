@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { GAME_LENGTH, type GameSettings, type GameTrack } from "../../shared/game";
-import { describeSettings, DIFFICULTY_LABELS, fetchGame, shareText } from "../lib/game";
+import { describeSettings, DIFFICULTY_LABELS, DIFFICULTY_MULTIPLIERS, fetchGame, shareText } from "../lib/game";
+import { formatPoints, MAX_POINTS } from "../lib/score";
 import { describeError } from "../lib/errors";
 import { toGuessOptions } from "../lib/songs";
 import { deezer } from "../sources/deezer";
@@ -67,7 +68,7 @@ export function QuickPlay({ settings, onExit, onPlayAgain }: Props) {
 
   const skipUnavailable = () => {
     setPreviewMissing(false);
-    record({ won: false, guesses: [] });
+    record({ won: false, guesses: [], points: 0 });
     setIndex((i) => i + 1);
   };
 
@@ -121,9 +122,11 @@ export function QuickPlay({ settings, onExit, onPlayAgain }: Props) {
           onFinish={record}
           onNext={() => setIndex((i) => i + 1)}
           nextLabel={index === GAME_LENGTH - 1 ? "See results" : "Next song"}
+          multiplier={DIFFICULTY_MULTIPLIERS[index]}
           heading={
             <p className="round-heading">
-              Song {index + 1} of {GAME_LENGTH} · <strong>{DIFFICULTY_LABELS[index]}</strong>
+              Song {index + 1} of {GAME_LENGTH} · <strong>{DIFFICULTY_LABELS[index]}</strong> ×
+              {DIFFICULTY_MULTIPLIERS[index]} · {formatPoints(total(results))} pts
             </p>
           }
         />
@@ -135,6 +138,9 @@ export function QuickPlay({ settings, onExit, onPlayAgain }: Props) {
     </div>
   );
 }
+
+const total = (results: RoundResult[]) => results.reduce((sum, r) => sum + r.points, 0);
+const MAX_GAME_POINTS = DIFFICULTY_MULTIPLIERS.reduce((sum, m) => sum + m * MAX_POINTS, 0);
 
 function GameDots({ results, current }: { results: RoundResult[]; current: number }) {
   return (
@@ -177,9 +183,10 @@ function Summary({ settings, tracks, results, onExit, onPlayAgain }: SummaryProp
 
   return (
     <div className="summary">
-      <h2 className="center">
-        {solved}/{GAME_LENGTH} solved
-      </h2>
+      <h2 className="center summary-points">{formatPoints(total(results))} pts</h2>
+      <p className="center muted">
+        {solved}/{GAME_LENGTH} solved · out of {formatPoints(MAX_GAME_POINTS)}
+      </p>
       <ul className="summary-list">
         {tracks.map((t, i) => {
           const r = results[i];
@@ -192,7 +199,7 @@ function Summary({ settings, tracks, results, onExit, onPlayAgain }: SummaryProp
                   {t.artists.join(", ")} · {t.year} · {DIFFICULTY_LABELS[i]}
                 </span>
               </div>
-              <span className="summary-result">{r?.won ? `${r.guesses.length}/6` : "✕"}</span>
+              <span className="summary-result">{r?.won ? formatPoints(r.points) : "✕"}</span>
             </li>
           );
         })}

@@ -1,7 +1,10 @@
 # Songr
 
 A Songless-style music guessing game. Name the song from a 1-second clip;
-each wrong guess or skip unlocks more: 1s → 2s → 4s → 7s → 11s → 16s.
+each wrong guess or skip unlocks more: 1s → 2s → 4s → 7s → 11s → 16s. You
+can also pick any point on the progress bar to unlock up to there. The less
+you hear, the more a correct guess is worth: 10,000 points from the first
+second, down to 2,000 with all 16 seconds.
 
 Two modes:
 
@@ -186,6 +189,15 @@ enough for day-to-day work.
 
 ## Gameplay notes
 
+- Scoring (`src/lib/score.ts`). A correct guess is worth 10,000 points with
+  only the first second unlocked, falling in proportion to the seconds
+  unlocked to 2,000 at 16 seconds. Wrong answers score 0. Wrong guesses and
+  skips cost points only through the time they unlock. Quick play multiplies
+  each song's points by its difficulty: Easy ×1, Medium ×1.2, Tricky ×1.4,
+  Hard ×1.7, Expert ×2, for a maximum of 73,000 per game.
+- The progress bar works like a video's. Picking a point past the unlocked
+  part unlocks up to there and plays on; picking inside it jumps there.
+  Hovering or dragging shows what the song would be worth.
 - Guesses must be picked from the suggestion list. Typing alone doesn't count.
 - After a skip, Play picks up where you left off, so you only hear the newly
   unlocked part. The replay button next to it plays everything unlocked so
@@ -197,7 +209,7 @@ enough for day-to-day work.
 - Search matches must agree on artist, cleaned title, live vs. studio, and
   duration within 5 seconds.
 - Songs don't repeat until every playable track in the playlist has come up.
-- Score, streak and best streak last for the session. They reset when you
+- In playlist mode, points, solved, streak and best streak last for the session. They reset when you
   start a new game.
 
 ## Ideas for later

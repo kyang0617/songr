@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePreviewPlayer } from "../hooks/usePreviewPlayer";
+import { basePoints, formatPoints } from "../lib/score";
 import { songKey } from "../lib/songs";
 import type { PlayableTrack } from "../sources/types";
 import { GuessInput, type GuessOption } from "./GuessInput";
@@ -18,6 +19,8 @@ export interface Guess {
 export interface RoundResult {
   won: boolean;
   guesses: Guess[];
+  /** Including the difficulty multiplier. 0 unless won. */
+  points: number;
 }
 
 interface Props {
@@ -30,16 +33,25 @@ interface Props {
   nextLabel: string;
   /** Shown above the attempts, e.g. "Song 2 of 5 · Medium". */
   heading?: ReactNode;
+  /** Points multiplier for the song's difficulty. */
+  multiplier?: number;
 }
 
 /** One song: play the clip, guess or skip, then reveal. Remount (via `key`) for each new song. */
-export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel, heading }: Props) {
+export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel, heading, multiplier = 1 }: Props) {
   const [guesses, setGuesses] = useState<Guess[]>([]);
+  // Seconds the player can hear. Each attempt unlocks at least its step.
+  const [unlocked, setUnlocked] = useState(STEPS[0]);
+  // The second under the pointer on the progress bar, if any.
+  const [preview, setPreview] = useState<number | null>(null);
+  // Kept once the round ends, for the reveal.
+  const [earned, setEarned] = useState(0);
   const won = guesses.at(-1)?.kind === "correct";
   const finished = won || guesses.length >= STEPS.length;
 
   const attempt = guesses.length;
-  const limit = finished ? PREVIEW_LENGTH : STEPS[attempt];
+  const limit = finished ? PREVIEW_LENGTH : unlocked;
+  const points = Math.round(basePoints(unlocked) * multiplier);
   const player = usePreviewPlayer(previewUrl, limit);
 
   // Play the full preview from the start as soon as the answer is revealed.
@@ -53,16 +65,30 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
     const next = [...guesses, guess];
     setGuesses(next);
     if (guess.kind === "correct" || next.length >= STEPS.length) {
-      onFinish({ won: guess.kind === "correct", guesses: next });
+      const correct = guess.kind === "correct";
+      setEarned(correct ? points : 0);
+      onFinish({ won: correct, guesses: next, points: correct ? points : 0 });
+    } else {
+      setUnlocked((u) => Math.max(u, STEPS[next.length]));
     }
   };
+
+  // Picking past what's unlocked unlocks up to there and plays on (it costs
+  // points); picking inside it jumps there, like a video's progress bar.
+  const select = (sec: number) => {
+    if (finished || sec <= unlocked) return player.seek(sec);
+    setUnlocked(sec);
+    player.playTo(sec);
+  };
+  const shownPoints = Math.round(basePoints(Math.max(unlocked, preview ?? 0)) * multiplier);
 
   const answerKey = songKey(track.title, track.artists[0] ?? "");
   const onGuess = (option: GuessOption) =>
     record({ label: option.label, kind: option.key === answerKey ? "correct" : "wrong" });
 
   const isLastAttempt = attempt === STEPS.length - 1;
-  const skipLabel = isLastAttempt ? "Give up" : `Skip (+${STEPS[attempt + 1] - STEPS[attempt]}s)`;
+  const skipGain = isLastAttempt ? 0 : STEPS[attempt + 1] - unlocked;
+  const skipLabel = isLastAttempt ? "Give up" : skipGain > 0 ? `Skip (+${formatSeconds(skipGain)}s)` : "Skip";
   const wrongKeys = useMemo(
     () => new Set(options.filter((o) => guesses.some((g) => g.label === o.label)).map((o) => o.key)),
     [options, guesses],
@@ -72,7 +98,7 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
     <>
       {heading}
       {finished ? (
-        <Reveal track={track} won={won} attempts={guesses.length} onNext={onNext} nextLabel={nextLabel} />
+        <Reveal track={track} won={won} attempts={guesses.length} points={earned} onNext={onNext} nextLabel={nextLabel} />
       ) : (
         <ol className="attempts">
           {STEPS.map((_, i) => {
@@ -92,6 +118,8 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
           unlockedSec={limit}
           positionSec={player.position}
           markers={finished ? [] : STEPS.slice(0, -1)}
+          onSelect={select}
+          onPreview={finished ? undefined : setPreview}
         />
         <div className="player-row">
           <span className="time">{formatTime(player.position)}</span>
@@ -118,6 +146,12 @@ export function Round({ track, previewUrl, options, onFinish, onNext, nextLabel,
           </div>
           <span className="time">{formatTime(limit)}</span>
         </div>
+        {!finished && (
+          <p className={`worth center small ${preview !== null && preview > unlocked ? "previewing" : "muted"}`}>
+            Worth {formatPoints(shownPoints)} pts
+            {multiplier !== 1 && ` (×${multiplier})`}
+          </p>
+        )}
         {!player.ready && !player.error && <p className="muted center small">Loading preview…</p>}
         {player.error && <p className="error-text center">{player.error}</p>}
       </div>
@@ -145,3 +179,5 @@ function ReplayIcon() {
 }
 
 const formatTime = (sec: number) => `0:${String(Math.floor(sec)).padStart(2, "0")}`;
+/** 3, or 2.5 for a selection between whole seconds. */
+const formatSeconds = (sec: number) => String(Math.round(sec * 10) / 10);
